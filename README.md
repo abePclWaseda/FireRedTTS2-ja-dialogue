@@ -38,21 +38,27 @@ This is a fork of [FireRedTeam/FireRedTTS2](https://github.com/FireRedTeam/FireR
 Because each speaker is on its own channel, overlap and backchannels are pure
 post-processing (no source separation). See `dialogue_tools/README.md`.
 
-### Quickstart
+### Quickstart (uv — recommended)
+This repo ships a `uv.lock` pinning torch 2.7.1 (CUDA 12.6). `uv sync` reproduces
+the exact environment (Linux + CUDA 12.6 assumed).
 ```bash
-git clone <this repo> && cd <repo>
-pip install -e .
+git clone https://github.com/abePclWaseda/FireRedTTS2-ja-dialogue
+cd FireRedTTS2-ja-dialogue
+uv sync                       # torch (cu126) 含め uv.lock どおり再現
+
 # Japanese-finetuned weights (assembled on top of the base checkpoints):
-hf download FireRedTeam/FireRedTTS2 --local-dir ft_model
-hf download kobas-lab/fireredtts2-zoom1-dialogue-ja --local-dir ft_post --repo-type model
+uv run hf download FireRedTeam/FireRedTTS2 --local-dir ft_model
+uv run hf download kobas-lab/fireredtts2-zoom1-dialogue-ja --local-dir ft_post --repo-type model
 cp ft_post/config_llm.json ft_post/config_codec.json ft_model/
 cp ft_post/drop/llm_posttrain.pt ft_model/llm_posttrain.pt
 
 # stereo dialogue synthesis
-python dialogue_tools/synthesize.py --pretrained_dir ft_model \
+uv run python dialogue_tools/synthesize.py --pretrained_dir ft_model \
     --script dialogue_tools/examples/smoke_input.txt --out out/sample.wav \
     --prompt s1.wav '[S1]...' --prompt s2.wav '[S2]...'
 ```
+> pip を使う場合は `pip install -e .` でも可。ただし torch は CUDA ビルドを明示する
+> こと: `pip install torch==2.7.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu126`
 
 See [`NOTICE`](NOTICE) for the list of modifications. Upstream README follows.
 

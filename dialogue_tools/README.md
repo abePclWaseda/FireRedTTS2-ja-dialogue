@@ -20,8 +20,10 @@ FireRedTTS2 をそのまま入れた環境で**パッチ不要**で動く(公開
 
 ## セットアップ(共同研究者向け・最短)
 ```bash
-# 公式コードとモデルは既存手順どおり(ft_model/ が組み立て済みなら不要)
-pip install -e /path/to/FireRedTTS2        # or 既存の環境をそのまま
+# fork を clone して uv で環境構築(torch cu126 込みで uv.lock を再現)
+git clone https://github.com/abePclWaseda/FireRedTTS2-ja-dialogue
+cd FireRedTTS2-ja-dialogue && uv sync
+# 以降のコマンドは uv run python ... で実行。ft_model/ の準備はトップ README の Quickstart 参照。
 ```
 
 ## 1) 合成(easy inference)
