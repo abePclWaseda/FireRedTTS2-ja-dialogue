@@ -1,0 +1,18 @@
+*.egg-info
+.vscode/*
+*/**/.DS_Store
+**/__pycache__/
+
+# large / local — never commit these
+pretrained_models/
+ft_model/
+ft_post/
+.venv/
+venv/
+output/
+outputs/
+*.pt
+
+# 内部用(公開しない)
+PUBLISH.md
+bin/finetune_example/config_finetune_zoom1_*.json

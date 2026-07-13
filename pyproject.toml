@@ -1,0 +1,42 @@
+[project]
+name = "fireredtts2"
+version = "0.1.0"
+description = "FireRedTTS-2 (vendored) + 0386 Zoom1 finetune env"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "torch==2.7.1",
+    "torchaudio==2.7.1",
+    "torchvision==0.22.1",
+    "torchtune",
+    "torchao==0.10.0",
+    "transformers",
+    "einops",
+    "librosa",
+    "soundfile",
+    "accelerate",
+    "datasets",
+    "tensorboard",
+    "optuna",
+    "gradio",
+    "numpy",
+    "polars",
+    "huggingface-hub",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fireredtts2*"]
+
+# torch を CUDA 12.6 ビルドから取得 (クラスタの module load cuda/12.6 と整合)
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchaudio = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }

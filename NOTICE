@@ -1,0 +1,31 @@
+FireRedTTS-2 — Japanese dialogue fork
+=====================================
+
+This repository is a fork of FireRedTTS-2 by FireRedTeam
+(https://github.com/FireRedTeam/FireRedTTS2), distributed under the
+Apache License 2.0. See the LICENSE file for the full license text.
+
+Modifications in this fork (abePclWaseda / kobas-lab, 2026):
+
+- fireredtts2/fireredtts2.py
+    Added an `output_stereo` option to `FireRedTTS2.generate_dialogue`.
+    When True, it returns turn-separated stereo [2, T] (S1/S3 -> left,
+    S2/S4 -> right) instead of the default mono [1, T]. The per-turn audio
+    is identical to the mono path; only the final channel assembly differs.
+    The default (False) preserves the original upstream behavior.
+
+- dialogue_tools/  (new directory)
+    Easy-inference and post-processing tools built on the public API only
+    (no changes to the core model are required to use them):
+      synthesize.py         stereo/mono dialogue synthesis + per-turn timing
+                            manifest + per-turn audio segments
+      postprocess.py        overlap engineering / backchannel insertion,
+                            applied by re-timing the manifest (no re-generation)
+      synth_backchannel.py  synthesize backchannels (aizuchi) in a speaker's
+                            voice, for insertion on the listener's channel
+
+Japanese-finetuned weights are published separately on Hugging Face:
+    kobas-lab/fireredtts2-zoom1-dialogue-ja
+(assembled on top of the base FireRedTeam/FireRedTTS2 checkpoints).
+
+Model weights are NOT included in this repository.
