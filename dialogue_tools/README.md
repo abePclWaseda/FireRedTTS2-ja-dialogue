@@ -58,20 +58,26 @@ python postprocess.py --manifest out/sample.manifest.json --op overlap \
   `synth_backchannel.py` で話者ごとに合成してバンク化する(下記)。挿入位置は
   overlap後の onset に整合。
 
-相槌は聞き手の声で鳴らすので、話者ごとにバンクを作る:
+相槌は聞き手の声で鳴らすので、話者ごとにバンクを作る。語彙は **LLM-jp-Zoom1 実測の
+頻度**(うん 55% / はい 21% / うんうん 11% …)で重み付けし、各語を複数変種合成して
+`bank.json`(重み付き)に保存する:
 ```bash
-# S1 の声で相槌バンク
+# S1 の声で相槌バンク(既定=Zoom1頻度語彙 x 2変種)
 python synth_backchannel.py --pretrained_dir /path/to/ft_model \
     --prompt s1.wav '[S1]書き起こし' --speaker S1 --out_dir out/bc/s1
-# S2 の声で相槌バンク
 python synth_backchannel.py --pretrained_dir /path/to/ft_model \
     --prompt s2.wav '[S2]書き起こし' --speaker S2 --out_dir out/bc/s2
 
-# overlap + backchannel をまとめて適用(ch0=L=S1声, ch1=R=S2声)
+# overlap + backchannel をまとめて適用(既定=Zoom1寄り: overlap 350ms/±150, 相槌 3.1/分)
 python postprocess.py --manifest out/sample.manifest.json --op overlap backchannel \
-    --overlap_ms 250 --bc_bank 0 out/bc/s1 --bc_bank 1 out/bc/s2 \
+    --bc_bank 0 out/bc/s1 --bc_bank 1 out/bc/s2 --bc_per_min 3.1 \
     --out out/sample_final.wav
 ```
+- `--bc_per_min`: 相槌の分あたり挿入数(ターン長に比例配分・長ターンは複数可)。
+- `--overlap_ms`/`--jitter_ms`: 話者交代の重ね幅。
+- **注意**: 重なり率は**ターン密度に強く依存**する(交代点にしか重なりを作れないため)。
+  実測では 疎な台本(7.5ターン/分)→重なり ~5%、密な台本(~40ターン/分)→~28%。
+  Zoom1 の ~20% は **ターン ~18/分**(生成側)に合わせると現在の既定で概ね到達する。
 
 ## manifest スキーマ
 ```json
