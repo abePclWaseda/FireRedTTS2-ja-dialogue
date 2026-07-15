@@ -47,28 +47,39 @@ def assemble_stereo(turns, audios, onsets_samp, sr):
     return buf
 
 
-def add_overlap(turns, audios, sr, overlap_ms=250.0, jitter_ms=0.0,
-                seed=0, max_frac=0.5):
-    """話者交代の各境界で、次ターンの onset を overlap 分だけ前倒しする。
+def add_overlap(turns, audios, sr, gap_prob=0.45, gap_std_ms=400.0, gap_max_ms=1200.0,
+                overlap_std_ms=400.0, overlap_max_ms=800.0, seed=0, max_frac=0.5):
+    """話者交代ごとに FTO(間/重なり)を分布からサンプルし、緩急を作る。
 
-    overlap は min(overlap_ms, 前後ターンの max_frac) にクランプ(潰しすぎ防止)。
-    同一話者が連続する箇所は重ねない(同ch衝突を避ける)。
+    Zoom1 実測の主ターン交代 FTO(間 ~46% / 重なり ~50%, median≈0, 大きくばらつく)に準拠。
+    一様に重ねるのではなく、交代の一部は「間(無音ギャップ)」、一部は「重なり」になり量も
+    変動する → 緩急が出る。offset>0=間、offset<0=重なり。同一話者連続は butt-join。
     戻り値: onsets_samp(list[int])
     """
     rng = random.Random(seed)
     onsets = [0]
+    n_gap = n_ov = 0
+    offs = []
     for i in range(1, len(turns)):
         prev_end = onsets[i - 1] + audios[i - 1].shape[0]
-        ov = 0.0
+        off_ms = 0.0
         if turns[i]["speaker"] != turns[i - 1]["speaker"]:
-            ov = overlap_ms
-            if jitter_ms:
-                ov += rng.uniform(-jitter_ms, jitter_ms)
-            ov = max(0.0, ov)
-            cap = max_frac * min(turns[i]["duration"], turns[i - 1]["duration"]) * 1000.0
-            ov = min(ov, cap)
-        onset = prev_end - int(ov * sr / 1000.0)
+            if rng.random() < gap_prob:
+                off_ms = min(gap_max_ms, abs(rng.gauss(0, gap_std_ms)) + 50.0)   # 間(正)
+                n_gap += 1
+            else:
+                cap = min(overlap_max_ms,
+                          max_frac * min(turns[i]["duration"], turns[i - 1]["duration"]) * 1000.0)
+                off_ms = -min(cap, abs(rng.gauss(0, overlap_std_ms)) + 50.0)      # 重なり(負)
+                n_ov += 1
+            offs.append(off_ms)
+        onset = prev_end + int(off_ms * sr / 1000.0)
         onsets.append(max(0, onset))
+    if offs:
+        import statistics
+        print(f"[overlap] 交代{len(offs)}件: 間{n_gap}/重なり{n_ov}  "
+              f"offset mean={statistics.mean(offs):.0f}ms std={statistics.pstdev(offs):.0f}ms(緩急)",
+              flush=True)
     return onsets
 
 
@@ -140,9 +151,12 @@ def main():
     ap.add_argument("--manifest", required=True, help="synthesize.py が出した *.manifest.json")
     ap.add_argument("--out", required=True, help="出力 wav")
     ap.add_argument("--op", nargs="+", choices=["overlap", "backchannel"], default=["overlap"])
-    ap.add_argument("--overlap_ms", type=float, default=350.0, help="話者交代の重ね幅(Zoom1寄り)")
-    ap.add_argument("--jitter_ms", type=float, default=150.0, help="重ね幅のばらつき(±)")
-    ap.add_argument("--max_frac", type=float, default=0.5, help="重ね幅の上限=短い方ターンの割合")
+    ap.add_argument("--gap_prob", type=float, default=0.45, help="交代が間(無音)になる割合(Zoom1≈0.46)")
+    ap.add_argument("--gap_std_ms", type=float, default=400.0, help="間の大きさの散らばり")
+    ap.add_argument("--gap_max_ms", type=float, default=1200.0, help="間の上限")
+    ap.add_argument("--overlap_std_ms", type=float, default=400.0, help="重なりの大きさの散らばり")
+    ap.add_argument("--overlap_max_ms", type=float, default=800.0, help="重なりの上限")
+    ap.add_argument("--max_frac", type=float, default=0.5, help="重なり上限=短い方ターンの割合")
     ap.add_argument("--bc_bank", nargs=2, action="append", metavar=("CH", "DIR"),
                     default=[], help="相槌バンク: チャンネル(0=L/1=R) とその声の素片dir。"
                                      "例: --bc_bank 0 bc/s1 --bc_bank 1 bc/s2")
@@ -159,7 +173,8 @@ def main():
 
     onsets = [t["onset"] * 0 for t in turns]  # placeholder, 下で確定
     if "overlap" in args.op:
-        onsets = add_overlap(turns, audios, sr, args.overlap_ms, args.jitter_ms,
+        onsets = add_overlap(turns, audios, sr, args.gap_prob, args.gap_std_ms,
+                             args.gap_max_ms, args.overlap_std_ms, args.overlap_max_ms,
                              args.seed, args.max_frac)
     else:
         # overlap しない場合は元の連結位置

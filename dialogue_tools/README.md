@@ -46,14 +46,16 @@ python synthesize.py \
 - `out/sample.manifest.json` … 各ターンの speaker/channel/text/onset/duration/wav
 - `out/turns/*.wav` … 各ターン素片(後段処理の材料)
 
-## 2) 後段処理(将来公開したい機能)
+## 2) 後段処理
 ```bash
-# ターン境界を前倒しして自然な重なりを作る
+# 話者交代ごとに「間/重なり」を分布からサンプルして緩急を作る
 python postprocess.py --manifest out/sample.manifest.json --op overlap \
-    --overlap_ms 250 --jitter_ms 120 --out out/sample_overlap.wav
+    --out out/sample_overlap.wav
 ```
-- **overlap**: 動作する。話者交代の各境界で次ターンの onset を前倒し。重ね幅は
-  短い方ターンの `max_frac`(既定50%)でクランプ。`jitter_ms` でばらつき。
+- **overlap**: 話者交代ごとに FTO(間/重なり)を**分布からサンプル**する。Zoom1 実測の
+  主ターン交代(**間 ~46% / 重なり ~50%, median≈0**)に準拠し、一部は無音の「間」、一部は
+  「重なり」になり量も変動する → **緩急**が出る。一律に重ねないので過剰な重なりも避けられる。
+  調整: `--gap_prob`(間の割合)/`--gap_max_ms`/`--overlap_max_ms`/`--overlap_std_ms`。
 - **backchannel**: 相手の長ターン中に、**聞き手の声**で相槌を挿入。相槌素片は
   `synth_backchannel.py` で話者ごとに合成してバンク化する(下記)。挿入位置は
   overlap後の onset に整合。
