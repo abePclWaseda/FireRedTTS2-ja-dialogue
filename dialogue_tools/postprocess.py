@@ -160,6 +160,9 @@ def main():
     ap.add_argument("--bc_bank", nargs=2, action="append", metavar=("CH", "DIR"),
                     default=[], help="相槌バンク: チャンネル(0=L/1=R) とその声の素片dir。"
                                      "例: --bc_bank 0 bc/s1 --bc_bank 1 bc/s2")
+    ap.add_argument("--bc_times_json", default=None,
+                    help="VAP等が出した相槌時刻 [{time, listener_channel, score}]。"
+                         "指定時は分あたり分布でなくこの時刻に置く(文脈依存配置)")
     ap.add_argument("--bc_per_min", type=float, default=3.0, help="相槌の分あたり挿入数(Zoom1≈3.1)")
     ap.add_argument("--bc_min_turn_s", type=float, default=1.5, help="相槌を入れる最小ターン長(秒)")
     ap.add_argument("--bc_max_per_turn", type=int, default=4, help="1ターンに入れる相槌の上限")
@@ -187,9 +190,29 @@ def main():
 
     if "backchannel" in args.op:
         banks = load_banks(args.bc_bank)
-        inserts = inject_backchannels(turns, audios, onsets, banks,
-                                      args.bc_per_min, args.bc_min_turn_s, args.seed,
-                                      args.bc_gain, args.bc_max_per_turn)
+        if args.bc_times_json:
+            # VAP等が予測した時刻に置く(文脈依存)。base時刻→overlap後タイムラインへ
+            # ターン相対位置を保って写像する。
+            import json as _json
+            pts = _json.load(open(args.bc_times_json))
+            rng = random.Random(args.seed)
+            inserts = []
+            for pt in pts:
+                ch = int(pt["listener_channel"])
+                if ch not in banks:
+                    continue
+                t = float(pt["time"]); pos = int(t * sr)
+                for k, tr in enumerate(turns):
+                    if tr["onset"] <= t < tr["onset"] + tr["duration"]:
+                        pos = onsets[k] + int((t - tr["onset"]) * sr)
+                        break
+                clip = rng.choices(banks[ch]["clips"], weights=banks[ch]["weights"], k=1)[0] * args.bc_gain
+                inserts.append({"channel": ch, "onset_samp": pos, "audio": clip})
+            print(f"[backchannel] VAP時刻に {len(inserts)} 個配置(文脈依存)。", flush=True)
+        else:
+            inserts = inject_backchannels(turns, audios, onsets, banks,
+                                          args.bc_per_min, args.bc_min_turn_s, args.seed,
+                                          args.bc_gain, args.bc_max_per_turn)
         if inserts:
             need = max(buf.shape[1], max(i["onset_samp"] + i["audio"].shape[0] for i in inserts))
             if need > buf.shape[1]:
