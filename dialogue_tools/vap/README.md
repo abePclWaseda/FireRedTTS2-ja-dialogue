@@ -36,8 +36,9 @@ PY
 ```bash
 # 1) VAP で相槌時刻を予測(素のターン分離ステレオ + manifest から)
 #    出力 = [{time, listener_channel, score}]
+#    ターンごとに長さ応じた本数を配分(--spacing 秒/個)。長い独白は複数・確実に付く。
 python vap_backchannel_times.py out/sample.wav out/sample.manifest.json out/bc_points_vap.json \
-    --per_min 3.1 --thr 0.4 --refractory 2.0
+    --min_turn 2.5 --spacing 4.0 --thr 0.4 --refractory 1.5
 
 # 2) FireRedTTS2 側の venv に戻り、postprocess でその時刻に配置
 python ../postprocess.py --manifest out/sample.manifest.json --op overlap backchannel \
@@ -48,8 +49,10 @@ python ../postprocess.py --manifest out/sample.manifest.json --op overlap backch
 タイムラインへ(ターン相対位置を保って)自動写像される。
 
 ## 実測(混在台本, 2026-07)
-VAP採用4点(3.1/分)は全て S1 の長い物語ターン中(t≈28.9/36.3/43.4/58.2s, listener=S2)=
-聞き手が「うん/はい」を入れる自然な瞬間に一致。
+ターンごと配分で17点(13.6/分, 独白多めの台本では自然)。最初の長ターン(0–10.2s)にも
+t≈2.2/4.8/7.6s(listener=S2)が入り、聞き手が「うん/はい」を打つ位置に一致。
+密度は `--spacing`(大きく=疎)で調整。※初期実装の「全体トップK(3.1/分)」だと前半の
+やや低スコアなピークがランキングで落ち、長ターンが相槌ゼロになる不具合があった→ターンごと配分で解消。
 
 ## 補足 / 今後
 - `vap_offline_bc.py` は素の feasibility 確認用(p_bc 時系列を出す)。
